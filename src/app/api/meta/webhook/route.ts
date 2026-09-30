@@ -5,7 +5,7 @@ import { metaConnections, webhookEvents } from "@/db/schema";
 import { env, requireMeta } from "@/lib/env";
 import { safeEqual } from "@/lib/crypto";
 import { ingestEvent, refreshDraftSafe } from "@/lib/inbox";
-import { parseInstagramWebhook, verifyWebhookSignature } from "@/lib/meta/webhooks";
+import { parseMetaWebhook, verifyWebhookSignature, type WebhookPayload } from "@/lib/meta/webhooks";
 
 export const maxDuration = 60;
 
@@ -43,13 +43,20 @@ export async function POST(req: NextRequest) {
 
   after(async () => {
     try {
-      const events = parseInstagramWebhook(payload as Parameters<typeof parseInstagramWebhook>[0]);
+      const events = parseMetaWebhook(payload as WebhookPayload);
       const toDraft = new Set<string>();
       for (const evt of events) {
         const conns = await db
           .select()
           .from(metaConnections)
-          .where(and(eq(metaConnections.igUserId, evt.accountId), eq(metaConnections.status, "active")));
+          .where(
+            and(
+              evt.channel === "instagram"
+                ? eq(metaConnections.igUserId, evt.accountId)
+                : eq(metaConnections.pageId, evt.accountId),
+              eq(metaConnections.status, "active"),
+            ),
+          );
         for (const conn of conns) {
           const res = await ingestEvent(conn, evt);
           if (res?.needsDraft) toDraft.add(res.threadId);

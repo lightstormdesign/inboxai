@@ -51,6 +51,25 @@ const INTENT_STYLE: Record<string, string> = {
   other: "bg-zinc-100 text-zinc-600",
 };
 
+/** IG users have @handles; Facebook users only have display names. */
+function displayName(t: Pick<Thread, "participantUsername" | "participantName">) {
+  if (t.participantUsername) return `@${t.participantUsername}`;
+  return t.participantName ?? "Unknown";
+}
+
+function ChannelBadge({ channel }: { channel: Thread["channel"] }) {
+  return channel === "facebook" ? (
+    <span className="grid h-4 w-4 shrink-0 place-items-center rounded bg-[#1877F2] text-[9px] font-bold text-white" title="Facebook">f</span>
+  ) : (
+    <span
+      className="grid h-4 w-4 shrink-0 place-items-center rounded bg-gradient-to-tr from-amber-400 via-pink-500 to-violet-600 text-[9px] font-bold text-white"
+      title="Instagram"
+    >
+      ◎
+    </span>
+  );
+}
+
 function timeAgo(iso: string) {
   const s = (Date.now() - new Date(iso).getTime()) / 1000;
   if (s < 60) return "now";
@@ -140,7 +159,8 @@ export function InboxView({
               >
                 <div className="flex items-center gap-2">
                   {t.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-600" />}
-                  <span className="truncate font-medium">@{t.participantUsername ?? "unknown"}</span>
+                  <ChannelBadge channel={t.channel} />
+                  <span className="truncate font-medium">{displayName(t)}</span>
                   <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] uppercase text-zinc-500">
                     {t.kind === "dm" ? "DM" : "Comment"}
                   </span>
@@ -266,13 +286,17 @@ function ThreadPane({ threadId, onBack, onDone }: { threadId: string; onBack: ()
         <button onClick={onBack} className="text-sm text-brand-600 md:hidden">← Back</button>
         <div className="min-w-0">
           <p className="truncate font-semibold">
-            @{t.participantUsername ?? "unknown"}
-            {t.participantName && <span className="ml-2 font-normal text-zinc-500">{t.participantName}</span>}
+            {displayName(t)}
+            {t.participantUsername && t.participantName && <span className="ml-2 font-normal text-zinc-500">{t.participantName}</span>}
           </p>
           <p className="text-xs text-zinc-500">
-            {t.kind === "dm" ? "Instagram direct message" : "Instagram comment"}
-            {detail.account?.igUsername && ` · to @${detail.account.igUsername}`}
-            {t.isDemo && " · sample data (replies are not sent to Instagram)"}
+            {t.channel === "facebook"
+              ? t.kind === "dm" ? "Facebook Messenger message" : "Facebook comment"
+              : t.kind === "dm" ? "Instagram direct message" : "Instagram comment"}
+            {t.channel === "facebook"
+              ? detail.account?.pageName && ` · to ${detail.account.pageName}`
+              : detail.account?.igUsername && ` · to @${detail.account.igUsername}`}
+            {t.isDemo && " · sample data (replies are not actually sent)"}
           </p>
         </div>
         <div className="ml-auto flex gap-2 text-xs">
@@ -348,7 +372,7 @@ function ThreadPane({ threadId, onBack, onDone }: { threadId: string; onBack: ()
         )}
         {windowClosed && (
           <p className="mb-2 rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-700">
-            Instagram only allows replies within 7 days of the customer&apos;s last message.
+            Meta only allows replies within 7 days of the customer&apos;s last message.
           </p>
         )}
         {error && <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}

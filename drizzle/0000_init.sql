@@ -1,9 +1,14 @@
+CREATE TYPE "public"."buffer_auth" AS ENUM('oauth', 'api_key');--> statement-breakpoint
 CREATE TYPE "public"."channel" AS ENUM('instagram', 'facebook');--> statement-breakpoint
 CREATE TYPE "public"."connection_status" AS ENUM('active', 'revoked', 'error');--> statement-breakpoint
 CREATE TYPE "public"."direction" AS ENUM('inbound', 'outbound');--> statement-breakpoint
 CREATE TYPE "public"."draft_status" AS ENUM('pending', 'sent', 'discarded', 'failed', 'superseded');--> statement-breakpoint
 CREATE TYPE "public"."intent" AS ENUM('question', 'lead', 'praise', 'complaint', 'support', 'spam', 'other');--> statement-breakpoint
+CREATE TYPE "public"."media_type" AS ENUM('image', 'video');--> statement-breakpoint
+CREATE TYPE "public"."post_status" AS ENUM('scheduled', 'publishing', 'published', 'partial', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."post_target_kind" AS ENUM('ig_feed', 'ig_story', 'ig_reel', 'fb_post', 'buffer');--> statement-breakpoint
 CREATE TYPE "public"."member_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
+CREATE TYPE "public"."target_status" AS ENUM('scheduled', 'processing', 'published', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."thread_kind" AS ENUM('dm', 'comment');--> statement-breakpoint
 CREATE TYPE "public"."thread_status" AS ENUM('open', 'done', 'archived');--> statement-breakpoint
 CREATE TABLE "audit_log" (
@@ -17,7 +22,10 @@ CREATE TABLE "audit_log" (
 --> statement-breakpoint
 CREATE TABLE "buffer_connections" (
 	"workspace_id" uuid PRIMARY KEY NOT NULL,
-	"api_key_enc" text NOT NULL,
+	"auth_type" "buffer_auth" DEFAULT 'oauth' NOT NULL,
+	"access_token_enc" text NOT NULL,
+	"refresh_token_enc" text,
+	"expires_at" timestamp with time zone,
 	"organization_id" text,
 	"organization_name" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -91,17 +99,31 @@ CREATE TABLE "meta_connections" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "scheduled_posts" (
+CREATE TABLE "post_targets" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"post_id" uuid NOT NULL,
+	"kind" "post_target_kind" NOT NULL,
+	"connection_id" uuid,
+	"buffer_channel_id" text,
+	"label" text,
+	"status" "target_status" DEFAULT 'scheduled' NOT NULL,
+	"container_id" text,
+	"external_id" text,
+	"permalink" text,
+	"error" text,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"published_at" timestamp with time zone
+);
+--> statement-breakpoint
+CREATE TABLE "posts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"workspace_id" uuid NOT NULL,
 	"created_by_user_id" uuid,
-	"buffer_post_id" text,
-	"buffer_channel_id" text NOT NULL,
-	"channel_label" text,
-	"text" text NOT NULL,
+	"text" text DEFAULT '' NOT NULL,
 	"media_url" text,
-	"due_at" timestamp with time zone,
-	"status" text DEFAULT 'scheduled' NOT NULL,
+	"media_type" "media_type",
+	"scheduled_at" timestamp with time zone NOT NULL,
+	"status" "post_status" DEFAULT 'scheduled' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -188,8 +210,10 @@ ALTER TABLE "messages" ADD CONSTRAINT "messages_thread_id_threads_id_fk" FOREIGN
 ALTER TABLE "messages" ADD CONSTRAINT "messages_sent_by_user_id_users_id_fk" FOREIGN KEY ("sent_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "meta_connections" ADD CONSTRAINT "meta_connections_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "meta_connections" ADD CONSTRAINT "meta_connections_connected_by_user_id_users_id_fk" FOREIGN KEY ("connected_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "scheduled_posts" ADD CONSTRAINT "scheduled_posts_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "scheduled_posts" ADD CONSTRAINT "scheduled_posts_created_by_user_id_users_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "post_targets" ADD CONSTRAINT "post_targets_post_id_posts_id_fk" FOREIGN KEY ("post_id") REFERENCES "public"."posts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "post_targets" ADD CONSTRAINT "post_targets_connection_id_meta_connections_id_fk" FOREIGN KEY ("connection_id") REFERENCES "public"."meta_connections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "posts" ADD CONSTRAINT "posts_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "posts" ADD CONSTRAINT "posts_created_by_user_id_users_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "threads" ADD CONSTRAINT "threads_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "threads" ADD CONSTRAINT "threads_connection_id_meta_connections_id_fk" FOREIGN KEY ("connection_id") REFERENCES "public"."meta_connections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -201,7 +225,9 @@ CREATE INDEX "messages_thread_idx" ON "messages" USING btree ("thread_id","sent_
 CREATE UNIQUE INDEX "meta_conn_ws_page_uq" ON "meta_connections" USING btree ("workspace_id","page_id");--> statement-breakpoint
 CREATE INDEX "meta_conn_ig_idx" ON "meta_connections" USING btree ("ig_user_id");--> statement-breakpoint
 CREATE INDEX "meta_conn_fb_user_idx" ON "meta_connections" USING btree ("fb_user_id");--> statement-breakpoint
-CREATE INDEX "scheduled_posts_ws_idx" ON "scheduled_posts" USING btree ("workspace_id","due_at");--> statement-breakpoint
+CREATE INDEX "post_targets_post_idx" ON "post_targets" USING btree ("post_id");--> statement-breakpoint
+CREATE INDEX "posts_ws_idx" ON "posts" USING btree ("workspace_id","scheduled_at");--> statement-breakpoint
+CREATE INDEX "posts_due_idx" ON "posts" USING btree ("status","scheduled_at");--> statement-breakpoint
 CREATE INDEX "sessions_user_idx" ON "sessions" USING btree ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "threads_ws_kind_ext_uq" ON "threads" USING btree ("workspace_id","kind","external_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "threads_ws_channel_kind_ext_uq" ON "threads" USING btree ("workspace_id","channel","kind","external_id");--> statement-breakpoint
 CREATE INDEX "threads_inbox_idx" ON "threads" USING btree ("workspace_id","status","last_message_at");

@@ -10,6 +10,7 @@ import { refreshDraftSafe } from "@/lib/inbox";
  * are flagged `is_demo` and "sending" only records the reply locally.
  */
 const SAMPLES: {
+  channel?: "instagram" | "facebook";
   kind: "dm" | "comment";
   username: string;
   name?: string;
@@ -58,6 +59,23 @@ const SAMPLES: {
     ],
   },
   {
+    channel: "facebook",
+    kind: "dm",
+    username: "",
+    name: "Linda Park",
+    minutesAgo: 22,
+    convo: [{ from: "them", text: "Hi, are you open on Sunday? I'd like to stop by with my daughter.", minutesAgo: 22 }],
+  },
+  {
+    channel: "facebook",
+    kind: "comment",
+    username: "",
+    name: "Tom Becker",
+    caption: "We're hiring! Part-time weekend help — message us for details.",
+    minutesAgo: 140,
+    convo: [{ from: "them", text: "Is this still open? I have retail experience.", minutesAgo: 140 }],
+  },
+  {
     kind: "comment",
     username: "cheap.followers.4u",
     caption: "New drop is live! Limited run of 50 — link in bio ✨",
@@ -77,10 +95,10 @@ export async function seedDemoInbox(workspaceId: string, opts: { draft?: boolean
       .values({
         workspaceId,
         kind: s.kind,
-        channel: "instagram",
+        channel: s.channel ?? "instagram",
         externalId,
         participantId: `demo_user_${i}`,
-        participantUsername: s.username,
+        participantUsername: s.username || null,
         participantName: s.name,
         mediaCaption: s.caption,
         lastMessageAt: new Date(now - s.minutesAgo * 60_000),
@@ -97,7 +115,7 @@ export async function seedDemoInbox(workspaceId: string, opts: { draft?: boolean
         externalId: `${externalId}_m${j}`,
         direction: c.from === "them" ? ("inbound" as const) : ("outbound" as const),
         text: c.text,
-        authorName: c.from === "them" ? s.username : "you",
+        authorName: c.from === "them" ? s.username || s.name : "you",
         sentAt: new Date(now - c.minutesAgo * 60_000),
       })),
     );

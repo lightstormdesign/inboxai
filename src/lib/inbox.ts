@@ -17,6 +17,7 @@ import { audit } from "@/lib/audit";
 import { decryptSecret } from "@/lib/crypto";
 import { messagingWindow } from "@/lib/meta/window";
 import { GraphError } from "@/lib/meta/graph";
+import * as fb from "@/lib/meta/facebook";
 import * as ig from "@/lib/meta/instagram";
 import type { NormalizedEvent } from "@/lib/meta/webhooks";
 
@@ -56,7 +57,7 @@ async function upsertThread(values: typeof threads.$inferInsert): Promise<Thread
     .insert(threads)
     .values(values)
     .onConflictDoUpdate({
-      target: [threads.workspaceId, threads.kind, threads.externalId],
+      target: [threads.workspaceId, threads.channel, threads.kind, threads.externalId],
       set: {
         participantUsername: sql`coalesce(excluded.participant_username, ${threads.participantUsername})`,
         participantName: sql`coalesce(excluded.participant_name, ${threads.participantName})`,
@@ -98,34 +99,55 @@ export async function ingestEvent(conn: MetaConnection, evt: NormalizedEvent): P
   return evt.type === "dm" ? ingestDm(conn, evt) : ingestComment(conn, evt);
 }
 
+/** Our own account id on this channel (for spotting our own echoes/replies). */
+function ownAccountId(conn: MetaConnection, channel: NormalizedEvent["channel"]) {
+  return channel === "instagram" ? conn.igUserId : conn.pageId;
+}
+
+function ownHandle(conn: MetaConnection, channel: NormalizedEvent["channel"]) {
+  return channel === "instagram" ? conn.igUsername : conn.pageName;
+}
+
+async function lookupProfile(conn: MetaConnection, evt: Extract<NormalizedEvent, { type: "dm" }>) {
+  try {
+    if (evt.channel === "instagram") {
+      const p = await ig.getIgUserProfile(evt.customerId, pageToken(conn));
+      return { username: p.username, name: p.name };
+    }
+    const p = await fb.getPsidProfile(evt.customerId, pageToken(conn));
+    return { username: undefined, name: p.name ?? [p.first_name, p.last_name].filter(Boolean).join(" ") };
+  } catch {
+    // profile lookup is best-effort (user may have restricted it)
+    return { username: undefined, name: undefined };
+  }
+}
+
 async function ingestDm(conn: MetaConnection, evt: Extract<NormalizedEvent, { type: "dm" }>): Promise<IngestResult> {
-  let username: string | undefined;
-  let name: string | undefined;
+  let profile: { username?: string; name?: string } = {};
   if (!evt.isEcho) {
     const [existing] = await db
-      .select({ u: threads.participantUsername })
+      .select({ u: threads.participantUsername, n: threads.participantName })
       .from(threads)
-      .where(and(eq(threads.workspaceId, conn.workspaceId), eq(threads.kind, "dm"), eq(threads.externalId, evt.customerId)));
-    if (!existing?.u) {
-      try {
-        const p = await ig.getIgUserProfile(evt.customerId, pageToken(conn));
-        username = p.username;
-        name = p.name;
-      } catch {
-        // profile lookup is best-effort (user may have restricted it)
-      }
-    }
+      .where(
+        and(
+          eq(threads.workspaceId, conn.workspaceId),
+          eq(threads.channel, evt.channel),
+          eq(threads.kind, "dm"),
+          eq(threads.externalId, evt.customerId),
+        ),
+      );
+    if (!existing?.u && !existing?.n) profile = await lookupProfile(conn, evt);
   }
 
   const thread = await upsertThread({
     workspaceId: conn.workspaceId,
     connectionId: conn.id,
-    channel: "instagram",
+    channel: evt.channel,
     kind: "dm",
     externalId: evt.customerId,
     participantId: evt.customerId,
-    participantUsername: username,
-    participantName: name,
+    participantUsername: profile.username,
+    participantName: profile.name,
     lastMessageAt: evt.timestamp,
   });
 
@@ -135,7 +157,9 @@ async function ingestDm(conn: MetaConnection, evt: Extract<NormalizedEvent, { ty
     direction: evt.isEcho ? "outbound" : "inbound",
     text: evt.text,
     attachments: evt.attachments,
-    authorName: evt.isEcho ? conn.igUsername : (username ?? thread.participantUsername),
+    authorName: evt.isEcho
+      ? ownHandle(conn, evt.channel)
+      : (profile.username ?? thread.participantUsername ?? profile.name ?? thread.participantName),
     sentAt: evt.timestamp,
   });
   if (!msg) return null;
@@ -147,32 +171,39 @@ async function ingestComment(
   conn: MetaConnection,
   evt: Extract<NormalizedEvent, { type: "comment" }>,
 ): Promise<IngestResult> {
-  const fromUs = Boolean(evt.fromId && evt.fromId === conn.igUserId);
+  const fromUs = Boolean(evt.fromId && evt.fromId === ownAccountId(conn, evt.channel));
   const rootId = evt.parentId ?? evt.commentId;
+
+  // Our own top-level comment on our own post isn't an inbox item.
+  if (fromUs && !evt.parentId) return null;
 
   let caption: string | undefined;
   let permalink: string | undefined;
   if (evt.mediaId && !evt.parentId) {
     try {
-      const media = await ig.getMedia(evt.mediaId, pageToken(conn));
-      caption = media.caption;
-      permalink = media.permalink;
+      if (evt.channel === "instagram") {
+        const media = await ig.getMedia(evt.mediaId, pageToken(conn));
+        caption = media.caption;
+        permalink = media.permalink;
+      } else {
+        const post = await fb.getPost(evt.mediaId, pageToken(conn));
+        caption = post.message;
+        permalink = post.permalink_url;
+      }
     } catch {
       // best-effort
     }
   }
 
-  // Our own top-level comment on our own post isn't an inbox item.
-  if (fromUs && !evt.parentId) return null;
-
   const thread = await upsertThread({
     workspaceId: conn.workspaceId,
     connectionId: conn.id,
-    channel: "instagram",
+    channel: evt.channel,
     kind: "comment",
     externalId: rootId,
     participantId: evt.parentId ? undefined : evt.fromId,
     participantUsername: evt.parentId ? undefined : evt.fromUsername,
+    participantName: evt.parentId ? undefined : evt.fromName,
     mediaId: evt.mediaId,
     mediaCaption: caption,
     mediaPermalink: permalink,
@@ -184,7 +215,7 @@ async function ingestComment(
     externalId: evt.commentId,
     direction: fromUs ? "outbound" : "inbound",
     text: evt.text,
-    authorName: evt.fromUsername,
+    authorName: evt.fromUsername ?? evt.fromName,
     sentAt: evt.timestamp,
   });
   if (!msg) return null;
@@ -302,7 +333,10 @@ export async function sendReply(opts: {
         const res = await ig.sendPrivateReply(conn.pageId, token, thread.externalId, text);
         externalId = res.message_id;
       } else {
-        const res = await ig.replyToComment(thread.externalId, token, text);
+        const res =
+          thread.channel === "facebook"
+            ? await fb.replyToFbComment(thread.externalId, token, text)
+            : await ig.replyToComment(thread.externalId, token, text);
         externalId = res.id;
       }
     } catch (err) {
@@ -317,9 +351,12 @@ export async function sendReply(opts: {
           .update(metaConnections)
           .set({ status: "error", lastError: err.message })
           .where(eq(metaConnections.id, conn.id));
-        throw new InboxError("Instagram access expired — please reconnect in Settings.", 409);
+        throw new InboxError("Meta access expired — please reconnect in Settings.", 409);
       }
-      if (err instanceof GraphError) throw new InboxError(`Instagram rejected the reply: ${err.message}`, 502);
+      if (err instanceof GraphError) {
+        const platform = thread.channel === "facebook" ? "Facebook" : "Instagram";
+        throw new InboxError(`${platform} rejected the reply: ${err.message}`, 502);
+      }
       throw err;
     }
   }
@@ -332,7 +369,7 @@ export async function sendReply(opts: {
       externalId,
       direction: "outbound",
       text,
-      authorName: conn?.igUsername ?? "you",
+      authorName: (thread.channel === "facebook" ? conn?.pageName : conn?.igUsername) ?? "you",
       sentAt: now,
       sentByUserId: opts.userId,
     })
@@ -377,8 +414,14 @@ export async function moderateComment(opts: {
   if (!thread.isDemo) {
     if (!conn) throw new InboxError("Account disconnected");
     const token = pageToken(conn);
-    if (opts.action === "delete") await ig.deleteComment(thread.externalId, token);
-    else await ig.setCommentHidden(thread.externalId, token, opts.action === "hide");
+    const hide = opts.action === "hide";
+    if (thread.channel === "facebook") {
+      if (opts.action === "delete") await fb.deleteFbComment(thread.externalId, token);
+      else await fb.setFbCommentHidden(thread.externalId, token, hide);
+    } else {
+      if (opts.action === "delete") await ig.deleteComment(thread.externalId, token);
+      else await ig.setCommentHidden(thread.externalId, token, hide);
+    }
   }
   await db
     .update(threads)

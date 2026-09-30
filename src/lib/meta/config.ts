@@ -5,17 +5,24 @@
  * the product doesn't visibly use, reviewers reject over-asking.
  */
 export const META_SCOPES = [
+  // Instagram inbox
   "instagram_basic",
   "instagram_manage_messages",
   "instagram_manage_comments",
+  // Instagram publishing (feed posts, stories, reels)
+  "instagram_content_publish",
+  // Facebook Page inbox (Messenger DMs + Page comments)
+  "pages_messaging",
+  "pages_manage_engagement",
+  "pages_read_user_content",
+  // Facebook Page publishing
+  "pages_manage_posts",
+  // Plumbing: list Pages, subscribe webhooks, read engagement, business-owned assets
   "pages_show_list",
   "pages_manage_metadata",
   "pages_read_engagement",
   "business_management",
 ] as const;
-
-/** v2 (Facebook Page inbox) — not requested in the v1 review submission. */
-export const META_SCOPES_V2 = ["pages_messaging", "pages_manage_engagement", "pages_read_user_content"] as const;
 
 /** Page webhook fields we subscribe each connected Page to. */
 export const PAGE_SUBSCRIBED_FIELDS = ["messages", "messaging_postbacks", "message_echoes", "feed"] as const;

@@ -45,6 +45,15 @@ The UI calls `POST /api/inbox/[id]/send` with `{text, draftId, approved: true}`.
 marks the draft `sent` with `final_text`, and writes the audit log.
 **No other code path posts to Meta.**
 
+## Publishing
+The Publish page uploads media straight from the browser to Vercel Blob (`/api/upload`),
+then `createPost` (`src/lib/publishing.ts`) stores a `posts` row plus one `post_targets`
+row per destination (IG feed/story/reel, FB Page post, Buffer channel). "Post now" publishes
+inline. Scheduled posts are picked up by `/api/cron/publish`. Instagram is two-step
+(container → publish); videos that are still processing stay `processing` and the cron
+finishes them. Buffer targets are handed to Buffer immediately with `dueAt`, since
+Buffer does its own scheduling.
+
 ## Backfill and safety net
 The OAuth callback triggers `syncConnection` in `after()`: recent conversations +
 recent media comments, drafting up to 15 open threads. Vercel Cron runs the same

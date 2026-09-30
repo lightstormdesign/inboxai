@@ -1,8 +1,8 @@
 # InboxAI *(working name)*
 
-An inbox for creators and small businesses. Instagram DMs and comments land in one
+An inbox for creators and small businesses. Instagram and Facebook DMs and comments land in one
 place, and each arrives with an **AI-drafted reply in the business's own voice**. A
-human approves every reply before it's sent. Posts can be scheduled through Buffer.
+human approves every reply before it's sent. Posts, stories and reels publish straight to Instagram and Facebook (Buffer optional).
 
 Built by LightStorm Design LLC. Standalone codebase.
 

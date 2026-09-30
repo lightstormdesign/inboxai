@@ -19,7 +19,9 @@
 - [ ] Facebook Login for Business configuration created; `META_LOGIN_CONFIG_ID` set in Vercel
 - [ ] Redirect URI `https://…/api/meta/callback` whitelisted, Strict Mode on
 - [ ] "Require App Secret" ON
-- [ ] Webhooks: Instagram object verified; `messages` and `comments` fields subscribed
+- [ ] Webhooks: Instagram object (`messages`, `comments`) and Page object (`messages`, `message_echoes`, `feed`) verified and subscribed
+- [ ] Messenger product added to the app
+- [ ] Vercel Blob store attached (`BLOB_READ_WRITE_TOKEN`) so uploads work in the demo
 - [ ] Test IG account: "Allow access to messages" enabled under Connected tools
 - [ ] End-to-end smoke test from doc 01 §6 passes on production
 - [ ] `META_GRAPH_VERSION` set to the current Graph version
@@ -27,7 +29,7 @@
 - [ ] Reviewer account created and pre-connected, with sample data (doc 04)
 
 ## App Review form
-- [ ] Requested: `instagram_basic`, `instagram_manage_messages`, `instagram_manage_comments`, `pages_show_list`, `pages_manage_metadata`, `pages_read_engagement`, `business_management`
+- [ ] Requested (12): `instagram_basic`, `instagram_manage_messages`, `instagram_manage_comments`, `instagram_content_publish`, `pages_messaging`, `pages_manage_engagement`, `pages_read_user_content`, `pages_manage_posts`, `pages_show_list`, `pages_manage_metadata`, `pages_read_engagement`, `business_management`
 - [ ] (Optional) Human Agent feature
 - [ ] Justification text pasted for each permission (doc 02)
 - [ ] Screencast uploaded, covering every permission (doc 03)
@@ -40,4 +42,4 @@
 - [ ] Switch the app to **Live** mode
 - [ ] Flip `SIGNUPS_OPEN=true` (if closed for beta)
 - [ ] Calendar reminder: annual Data Use Checkup
-- [ ] Start the v2 submission: `pages_messaging` for Facebook Page DMs
+- [ ] Later submissions as needed: Instagram Login variant, WhatsApp, etc.

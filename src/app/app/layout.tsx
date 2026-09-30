@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="px-4 py-4"><Logo href="/app/inbox" /></div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 text-sm md:flex-col md:pb-0">
           <NavLink href="/app/inbox">Inbox</NavLink>
-          <NavLink href="/app/schedule">Schedule posts</NavLink>
+          <NavLink href="/app/publish">Publish</NavLink>
           <NavLink href="/app/settings/voice">Brand voice</NavLink>
           <NavLink href="/app/settings/connections">Connections</NavLink>
           <NavLink href="/app/settings/account">Account</NavLink>

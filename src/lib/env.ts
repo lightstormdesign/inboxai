@@ -13,6 +13,9 @@ const schema = z.object({
   META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-5.4-mini"),
+  BUFFER_CLIENT_ID: z.string().optional(),
+  BUFFER_CLIENT_SECRET: z.string().optional(),
+  BLOB_READ_WRITE_TOKEN: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   SIGNUPS_OPEN: z.string().default("true"),
 });

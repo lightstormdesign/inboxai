@@ -4,7 +4,7 @@ import { brand } from "@/lib/brand";
 const features = [
   {
     title: "One inbox for DMs and comments",
-    body: "Instagram messages and post comments land in a single feed sorted by recency — no more hopping between tabs and apps.",
+    body: "Instagram and Facebook messages and comments land in a single feed sorted by recency — no more hopping between apps.",
   },
   {
     title: "Drafts in your voice",
@@ -19,8 +19,8 @@ const features = [
     body: "Hide or delete spam comments right from the inbox, and move public conversations into DMs with a private reply.",
   },
   {
-    title: "Schedule posts",
-    body: "Connect your Buffer account and queue up posts across your channels without leaving your inbox.",
+    title: "Post & schedule",
+    body: "Publish or schedule Instagram posts, stories and reels and Facebook Page posts right from your inbox. Already use Buffer? Connect it too.",
   },
   {
     title: "Built for small teams",
@@ -43,7 +43,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
         </p>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{brand.tagline}</h1>
         <p className="mt-5 text-lg text-zinc-600">
-          {brand.name} brings your Instagram DMs and comments into one inbox and drafts a reply to each one in your
+          {brand.name} brings your Instagram and Facebook DMs and comments into one inbox and drafts a reply to each one in your
           brand&apos;s voice. You review, tweak, and send — in seconds instead of hours.
         </p>
         <div className="mt-8 flex justify-center gap-3">
@@ -70,10 +70,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
       <section className="mx-auto max-w-3xl px-4 py-16 text-sm leading-6 text-zinc-600">
         <h2 className="mb-3 text-lg font-semibold text-zinc-900">How {brand.name} uses your data</h2>
         <p>
-          When you connect an Instagram professional account (through Facebook Login for Business), {brand.name} reads
-          the direct messages and comments on that account so it can show them in your inbox and draft replies. Message
-          text is sent to our AI provider solely to generate a suggested reply. Replies are only ever posted when you
-          press Send. You can disconnect at any time and request deletion of all data — see our{" "}
+          When you connect your Facebook Page and Instagram professional account (through Facebook Login for Business),{" "}
+          {brand.name} reads the direct messages and comments on those accounts so it can show them in your inbox and draft replies. Message
+          text is sent to our AI provider solely to generate a suggested reply. Replies and posts are only ever published
+          when you press Send or Publish. You can disconnect at any time and request deletion of all data — see our{" "}
           <Link href="/privacy" className="text-brand-600 underline">Privacy Policy</Link> and{" "}
           <Link href="/data-deletion" className="text-brand-600 underline">data deletion instructions</Link>.
         </p>

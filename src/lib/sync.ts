@@ -3,6 +3,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { drafts, metaConnections, messages, threads, type MetaConnection } from "@/db/schema";
 import { GraphError } from "@/lib/meta/graph";
+import * as fb from "@/lib/meta/facebook";
 import * as ig from "@/lib/meta/instagram";
 import type { NormalizedEvent } from "@/lib/meta/webhooks";
 import { ingestEvent, pageToken, refreshDraftSafe } from "@/lib/inbox";
@@ -12,38 +13,47 @@ import { ingestEvent, pageToken, refreshDraftSafe } from "@/lib/inbox";
  * connect and runs from Vercel Cron as a safety net for missed deliveries.
  */
 export async function syncConnection(conn: MetaConnection, opts: { draftLimit?: number } = {}) {
-  if (!conn.igUserId || conn.status !== "active") return { threads: 0 };
+  if (conn.status !== "active") return { threads: 0 };
   const token = pageToken(conn);
   const touched = new Set<string>();
 
   try {
     const events: NormalizedEvent[] = [];
 
-    for (const convo of await ig.listConversations(conn.pageId, token, 1)) {
-      for (const m of convo.messages?.data ?? []) {
-        const isEcho = m.from.id === conn.igUserId;
-        const customer = isEcho ? m.to?.data[0]?.id : m.from.id;
-        if (!customer) continue;
-        events.push({
-          type: "dm",
-          accountId: conn.igUserId,
-          customerId: customer,
-          mid: m.id,
-          text: m.message ?? "",
-          attachments: (m.attachments?.data ?? []).map((a) => ({
-            type: a.image_data ? "image" : a.video_data ? "video" : "file",
-            url: a.image_data?.url ?? a.video_data?.url ?? a.file_url,
-          })),
-          timestamp: new Date(m.created_time),
-          isEcho,
-        });
+    // ── Instagram (only if the Page has a linked IG professional account)
+    if (conn.igUserId) {
+      const igId = conn.igUserId;
+      for (const convo of await ig.listConversations(conn.pageId, token, 1)) {
+        for (const m of convo.messages?.data ?? []) {
+          const isEcho = m.from.id === igId;
+          const customer = isEcho ? m.to?.data[0]?.id : m.from.id;
+          if (customer) events.push(dmEvent("instagram", igId, customer, isEcho, m));
+        }
+      }
+      for (const media of await ig.listRecentMediaWithComments(igId, token)) {
+        for (const c of media.comments?.data ?? []) {
+          events.push(igCommentEvent(igId, media.id, c));
+          for (const r of c.replies?.data ?? []) events.push(igCommentEvent(igId, media.id, r, c.id));
+        }
       }
     }
 
-    for (const media of await ig.listRecentMediaWithComments(conn.igUserId, token)) {
-      for (const c of media.comments?.data ?? []) {
-        events.push(commentEvent(conn.igUserId, media.id, c));
-        for (const r of c.replies?.data ?? []) events.push(commentEvent(conn.igUserId, media.id, r, c.id));
+    // ── Facebook Page (Messenger + Page post comments)
+    if (conn.scopes.includes("pages_messaging")) {
+      for (const convo of await fb.listMessengerConversations(conn.pageId, token, 1)) {
+        for (const m of convo.messages?.data ?? []) {
+          const isEcho = m.from.id === conn.pageId;
+          const customer = isEcho ? m.to?.data[0]?.id : m.from.id;
+          if (customer) events.push(dmEvent("facebook", conn.pageId, customer, isEcho, m));
+        }
+      }
+    }
+    if (conn.scopes.includes("pages_read_user_content")) {
+      for (const post of await fb.listRecentPostsWithComments(conn.pageId, token)) {
+        for (const c of post.comments?.data ?? []) {
+          events.push(fbCommentEvent(conn.pageId, post.id, c));
+          for (const r of c.comments?.data ?? []) events.push(fbCommentEvent(conn.pageId, post.id, r, c.id));
+        }
       }
     }
 
@@ -71,9 +81,40 @@ export async function syncConnection(conn: MetaConnection, opts: { draftLimit?: 
   return { threads: touched.size };
 }
 
-function commentEvent(accountId: string, mediaId: string, c: ig.IgComment, parentId?: string): NormalizedEvent {
+type AnyApiMessage = {
+  id: string;
+  created_time: string;
+  message?: string;
+  attachments?: { data: { image_data?: { url: string }; video_data?: { url: string }; file_url?: string }[] };
+};
+
+function dmEvent(
+  channel: "instagram" | "facebook",
+  accountId: string,
+  customerId: string,
+  isEcho: boolean,
+  m: AnyApiMessage,
+): NormalizedEvent {
+  return {
+    type: "dm",
+    channel,
+    accountId,
+    customerId,
+    mid: m.id,
+    text: m.message ?? "",
+    attachments: (m.attachments?.data ?? []).map((a) => ({
+      type: a.image_data ? "image" : a.video_data ? "video" : "file",
+      url: a.image_data?.url ?? a.video_data?.url ?? a.file_url,
+    })),
+    timestamp: new Date(m.created_time),
+    isEcho,
+  };
+}
+
+function igCommentEvent(accountId: string, mediaId: string, c: ig.IgComment, parentId?: string): NormalizedEvent {
   return {
     type: "comment",
+    channel: "instagram",
     accountId,
     commentId: c.id,
     parentId,
@@ -82,6 +123,21 @@ function commentEvent(accountId: string, mediaId: string, c: ig.IgComment, paren
     fromUsername: c.from?.username ?? c.username,
     mediaId,
     timestamp: new Date(c.timestamp),
+  };
+}
+
+function fbCommentEvent(pageId: string, postId: string, c: fb.FbComment, parentId?: string): NormalizedEvent {
+  return {
+    type: "comment",
+    channel: "facebook",
+    accountId: pageId,
+    commentId: c.id,
+    parentId,
+    text: c.message,
+    fromId: c.from?.id,
+    fromName: c.from?.name,
+    mediaId: postId,
+    timestamp: new Date(c.created_time),
   };
 }
 

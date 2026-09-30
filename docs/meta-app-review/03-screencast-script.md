@@ -1,4 +1,4 @@
-# 03 — Screencast script (≈3–4 minutes)
+# 03 — Screencast script (≈5–6 minutes)
 
 Meta rejects most first submissions because of the video. Rules that matter:
 
@@ -17,6 +17,8 @@ Meta rejects most first submissions because of the video. Rules that matter:
 - Browser window A (1920×1080): InboxAI production URL, logged out, fresh account ready to sign up (or a test login).
 - Phone mirrored on screen, or window B: the **business** IG account (`@<test_business>`) in the Instagram app or web.
 - Phone or window C: a **personal** IG account (`@<test_customer>`) that will send the DM and comment.
+- Window D: a **personal Facebook** account (with a role on the app in dev mode) that messages and comments on the test **Facebook Page**.
+- A photo (square or 4:5) and a 9:16 photo for the story, saved on the recording computer.
 - The business IG account has at least one post.
 - Remove any previous InboxAI grant from Facebook → Settings → Business integrations so the full consent screen appears.
 - Voice profile already filled in, so drafts look good. Or do it on camera (scene 2), which shows off the product.
@@ -26,23 +28,32 @@ Meta rejects most first submissions because of the video. Rules that matter:
 
 | Time | Scene | On-screen caption | Permissions shown |
 |---|---|---|---|
-| 0:00 | Landing page → **Log in** as the test user. Mention the Privacy link in the footer. | "InboxAI helps small businesses answer Instagram DMs and comments from one inbox." | — |
-| 0:10 | Settings → Connections → click **Continue with Facebook**. The Facebook Login for Business dialog opens. | "Business connects their Instagram account via Facebook Login for Business." | — |
-| 0:15 | In the dialog, **select the Facebook Page** and **the Instagram account**, review the permission list, click Continue/Save. | "The user chooses exactly which Page and Instagram account to share." | pages_show_list, business_management, instagram_basic |
-| 0:30 | Back in InboxAI: the connection shows **@test_business · Active**. | "Account connected. InboxAI subscribes the Page to webhooks for new messages and comments." | pages_manage_metadata, instagram_basic |
-| 0:40 | Window C: the customer account DMs the business: *"Hi! Do you have openings Saturday for 2?"* | "A customer sends a DM on Instagram." | — |
-| 0:50 | InboxAI Inbox: the DM appears at the top (reload if needed). Click it. The conversation shows, with an **✦ AI draft** in the composer. | "The DM arrives in the inbox with a suggested reply in the business's voice." | instagram_manage_messages (read) |
-| 1:05 | **Edit the draft** (change a word), then click **Approve & send**. | "Nothing is sent automatically. A person reviews, edits, and approves every reply." | — |
-| 1:15 | Window C: the reply arrives in the customer's Instagram DMs. | "The approved reply is delivered on Instagram." | instagram_manage_messages (send) |
-| 1:30 | Window C: the customer **comments** on the business's post: *"Is this available in XL?"* | "A customer comments on a post." | — |
-| 1:40 | InboxAI: the comment appears (tagged COMMENT) with the post caption shown above it and an AI draft. | "Comments show up in the same inbox, with the post they belong to." | instagram_manage_comments (read), instagram_basic, pages_read_engagement |
-| 1:55 | Click **Approve & send** (Reply publicly). | | instagram_manage_comments (reply) |
-| 2:05 | Window B/C: open the post; the business's reply appears under the comment. | "The reply is posted publicly under the comment." | |
-| 2:15 | Customer leaves a spammy comment: *"Get 10k followers FAST"*. In InboxAI, click it, then **Hide**. Show it hidden on IG (from the business view). | "Businesses can hide spam or abusive comments…" | instagram_manage_comments (hide) |
-| 2:35 | Filter **Archived**, open it, click **Delete**, confirm. Show it's gone on IG. | "…or delete them." | instagram_manage_comments (delete) |
-| 2:50 | Settings → **Brand voice** page, a quick scroll. | "Drafts use the voice profile the business sets up." | — |
-| 3:00 | Settings → Connections → **Disconnect & delete data**; then show `/data-deletion`. | "Businesses can disconnect and delete their data at any time." | — |
-| 3:15 | End card. | "Thank you!" | — |
+| 0:00 | Landing page → **Log in** as the test user. Point out the Privacy link in the footer. | "InboxAI helps small businesses answer Instagram and Facebook messages and comments, and publish posts, from one place." | — |
+| 0:10 | Connections → **Continue with Facebook**. The Facebook Login for Business dialog opens. | "The business connects its accounts through Facebook Login for Business." | — |
+| 0:15 | **Select the Facebook Page** and **the Instagram account**, review the permission list, continue. | "The user chooses exactly which Page and Instagram account to share." | pages_show_list, business_management, instagram_basic |
+| 0:30 | Back in the app: "Test Page · Instagram @test_business · Facebook + Instagram · Active". | "Connected. The app subscribes the Page to webhooks for new messages and comments." | pages_manage_metadata |
+| **Instagram inbox** | | | |
+| 0:40 | Window C: the customer DMs the business: *"Hi! Do you have openings Saturday for 2?"* | "A customer sends an Instagram DM." | — |
+| 0:50 | Inbox: the DM appears with the Instagram badge. Open it: **✦ AI draft** in the composer. | "It arrives with a suggested reply in the business's voice." | instagram_manage_messages |
+| 1:05 | Edit a word → **Approve & send**. | "Nothing is sent automatically. A person reviews and approves every reply." | — |
+| 1:15 | Window C: the reply arrives in Instagram. | "Delivered on Instagram." | instagram_manage_messages |
+| 1:30 | Window C comments on a post: *"Is this available in XL?"* In the inbox: Comment tag, post caption, draft. **Approve & send** (public). | "Instagram comments land in the same inbox, with the post they belong to." | instagram_manage_comments, pages_read_engagement |
+| 1:55 | Show the reply under the post on Instagram. | | instagram_manage_comments |
+| 2:05 | A spam comment arrives → **Hide** → shown hidden on IG → Archived filter → **Delete** → gone on IG. | "Hide or delete spam." | instagram_manage_comments |
+| **Facebook Page inbox** | | | |
+| 2:50 | Window D: a Facebook user messages the **Page** in Messenger: *"Are you open Sunday?"* | "Facebook Messenger messages to the Page…" | — |
+| 3:00 | Inbox: the message appears with the **Facebook** badge and a draft → **Approve & send**. | "…come into the same inbox." | pages_messaging |
+| 3:15 | Window D: the reply arrives in Messenger. | "Delivered in Messenger." | pages_messaging |
+| 3:30 | Window D comments on a Page post. It appears in the inbox ("Facebook comment") with the post text. | "Facebook Page comments too." | pages_read_user_content |
+| 3:45 | **Approve & send** → the reply shows under the Page post. Then a spam comment → **Hide** → **Delete**. | "Reply to or moderate Page comments." | pages_manage_engagement |
+| **Publishing** | | | |
+| 4:15 | **Publish** page → upload the photo → select **Instagram · Post**, **Instagram · Story**, **Facebook · Page post** → write a caption → **Publish**. | "Businesses can post to Instagram and Facebook from the app." | instagram_content_publish, pages_manage_posts |
+| 4:35 | The post list shows each target as "published" → click the ↗ links → show the IG post, the IG story, and the FB Page post live. | "Published only when the user presses Publish." | instagram_content_publish, pages_manage_posts |
+| 4:50 | Show **Schedule** with a date/time and the "scheduled" status (optional). | "Or schedule for later." | — |
+| **Wrap-up** | | | |
+| 5:00 | Brand voice page, a quick scroll. | "Drafts use the voice profile the business sets up." | — |
+| 5:10 | Connections → **Disconnect & delete data**; show `/data-deletion`. | "Disconnect and delete data at any time." | — |
+| 5:25 | End card. | "Thank you!" | — |
 
 ## Tips
 

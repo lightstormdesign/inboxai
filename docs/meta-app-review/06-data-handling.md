@@ -12,7 +12,8 @@ questions in the App Review form. Keep them consistent with `/privacy`.
 | Vercel Inc. | Application hosting and serverless compute | US |
 | Neon (via Vercel Marketplace), or your chosen Postgres host | Primary database | US (choose region) |
 | OpenAI, L.L.C. | Generating suggested reply text from message content (API; not used for training; `store: false`) | US |
-| Buffer Inc. | Only receives posts the customer schedules. **No Meta Platform Data is sent to Buffer.** | US |
+| Vercel Blob (Vercel Inc.) | Stores media the customer uploads for publishing | US |
+| Buffer Inc. (optional) | Only receives posts the customer chooses to schedule through Buffer. **No Meta Platform Data (messages, comments, profiles) is sent to Buffer.** | US |
 
 ## Responsible entity
 LightStorm Design LLC, <country of registration: United States>.

@@ -66,6 +66,21 @@ export default function PrivacyPage() {
             <td>instagram_manage_comments, pages_read_engagement</td>
           </tr>
           <tr>
+            <td>Facebook Messenger messages sent to and from your Page, with the sender&apos;s Page-scoped ID and name</td>
+            <td>To display Page conversations in your inbox, draft replies, and send the replies you approve</td>
+            <td>pages_messaging</td>
+          </tr>
+          <tr>
+            <td>Comments (and replies) on your Facebook Page&apos;s posts, with commenter name, plus the post text and link</td>
+            <td>To display comments, draft replies, and let you reply, hide, or delete them</td>
+            <td>pages_read_user_content, pages_manage_engagement</td>
+          </tr>
+          <tr>
+            <td>Photos, videos and captions you choose to publish</td>
+            <td>To publish or schedule posts, stories and reels to your Instagram account and Facebook Page when you press Publish or Schedule</td>
+            <td>instagram_content_publish, pages_manage_posts</td>
+          </tr>
+          <tr>
             <td>Webhook subscription status for your Page</td>
             <td>To receive new messages and comments in real time</td>
             <td>pages_manage_metadata</td>
@@ -75,7 +90,8 @@ export default function PrivacyPage() {
       <p>We do not receive or store your Facebook password, and we only access accounts you explicitly select.</p>
       <h3>Buffer</h3>
       <p>
-        If you connect Buffer, we store your Buffer API key (encrypted) and the posts you schedule through {b.name}.
+        If you connect Buffer (optional), we store your Buffer access token or API key (encrypted) and use it only to
+        create the posts you schedule through {b.name}.
       </p>
       <h3>Usage and technical data</h3>
       <p>
@@ -85,7 +101,7 @@ export default function PrivacyPage() {
 
       <h2>3. How we use information</h2>
       <ul>
-        <li>To provide the Service: show your messages and comments, generate suggested replies, and send, hide, or delete content <strong>only when you tell us to</strong>.</li>
+        <li>To provide the Service: show your messages and comments, generate suggested replies, send, hide, or delete content, and publish posts — <strong>only when you tell us to</strong>.</li>
         <li>To secure the Service, prevent abuse, and debug problems.</li>
         <li>To communicate with you about your account and the Service.</li>
       </ul>
@@ -110,7 +126,8 @@ export default function PrivacyPage() {
         <li><strong>Our database provider</strong> (managed PostgreSQL) — data storage</li>
         <li><strong>OpenAI</strong> — generating reply drafts</li>
         <li><strong>Meta</strong> — when you send a reply or moderate a comment, we send it to Meta&apos;s API</li>
-        <li><strong>Buffer</strong> — when you schedule a post</li>
+        <li><strong>Vercel Blob</strong> — storing photos and videos you upload for publishing</li>
+        <li><strong>Buffer</strong> — only if you connect it and choose to schedule a post through it</li>
       </ul>
       <p>We may also disclose information if required by law, or to protect the rights and safety of our users or others.</p>
 
@@ -119,6 +136,7 @@ export default function PrivacyPage() {
         <li>Messages, comments, and drafts are kept while your account stays connected, so your inbox history works.</li>
         <li>Disconnecting an Instagram account in Settings immediately deletes its access token and all synced messages, comments, and drafts.</li>
         <li>Raw webhook deliveries are deleted after 14 days.</li>
+        <li>Media you upload for publishing is kept with the post record and deleted when you delete your account.</li>
         <li>Deleting your account deletes all workspace data immediately; backups roll off within 30 days.</li>
       </ul>
 

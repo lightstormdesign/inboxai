@@ -9,8 +9,8 @@ export function BufferConnectForm() {
   return (
     <form action={action} className="mt-3 space-y-3">
       <p className="text-sm text-zinc-600">
-        Buffer currently connects with a personal API key. In Buffer, open <strong>Settings → API</strong>, create a
-        key, and paste it here. We store it encrypted and only use it to create posts you schedule.
+        In Buffer, open <strong>Settings → API</strong>, create a key, and paste it here. We store it encrypted and only
+        use it to create posts you schedule.
       </p>
       <FormMessage state={state} />
       <div className="flex gap-2">

@@ -56,12 +56,12 @@ export async function GET(req: NextRequest) {
     const { token: userToken } = await exchangeForLongLivedToken(shortLived);
     const [me, scopes, pages] = await Promise.all([getMe(userToken), getGrantedScopes(userToken), listPages(userToken)]);
 
-    const withIg = pages.filter((p) => p.instagram_business_account);
-    if (withIg.length === 0) return back("error=no_instagram_account");
+    if (pages.length === 0) return back("error=no_pages");
 
     const connectedIds: string[] = [];
-    for (const page of withIg) {
-      const igAcct = page.instagram_business_account!;
+    for (const page of pages) {
+      // A Page may or may not have a linked Instagram professional account.
+      const igAcct = page.instagram_business_account ?? { id: null, username: null, profile_picture_url: null };
       const [row] = await db
         .insert(metaConnections)
         .values({
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
     await audit("meta.connected", {
       workspaceId: ctx.workspace.id,
       userId: ctx.user.id,
-      detail: { pages: withIg.map((p) => p.id), scopes },
+      detail: { pages: pages.map((p) => p.id), scopes },
     });
 
     // Backfill recent DMs/comments after responding so the redirect is instant.
@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    return back(`connected=${withIg.length}`);
+    return back(`connected=${pages.length}`);
   } catch (err) {
     console.error("[meta callback]", err);
     return back(`error=${encodeURIComponent((err as Error).message.slice(0, 120))}`);

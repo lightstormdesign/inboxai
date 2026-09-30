@@ -44,8 +44,11 @@ Week 3-4 Review decision (often 1–2 rounds of feedback; fix and resubmit)
   It also matches the conditions for the `HUMAN_AGENT` message tag (replies
   between 24h and 7 days).
 - **Don't over-ask.** Only request permissions the screencast visibly uses.
-  `pages_messaging` (Facebook Page DMs) is deliberately left out of v1; add it
-  in a later submission.
+  This submission covers three features, and each permission maps to one of
+  them: the **Instagram inbox**, the **Facebook Page inbox** (Messenger +
+  comments) and **publishing** (Instagram posts, stories and reels + Facebook
+  Page posts). Meta reviews each permission separately, so a rejection on one
+  doesn't block the others.
 - **Naming.** The app name can't contain "Insta", "Gram", "Facebook", "FB" or
   "Meta". See [../naming.md](../naming.md).
 

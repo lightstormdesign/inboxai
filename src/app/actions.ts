@@ -9,7 +9,6 @@ import {
   bufferConnections,
   memberships,
   metaConnections,
-  scheduledPosts,
   users,
   voiceProfiles,
   workspaces,
@@ -18,11 +17,12 @@ import { audit } from "@/lib/audit";
 import { createSession, destroySession, requireAuth } from "@/lib/auth";
 import * as buffer from "@/lib/buffer";
 import { deleteWorkspace } from "@/lib/compliance";
-import { decryptSecret, encryptSecret, hashPassword, verifyPassword } from "@/lib/crypto";
+import { encryptSecret, hashPassword, verifyPassword } from "@/lib/crypto";
 import { clearDemoInbox, seedDemoInbox } from "@/lib/demo";
 import { env } from "@/lib/env";
 import { pageToken } from "@/lib/inbox";
 import { unsubscribePageFromApp } from "@/lib/meta/oauth";
+import { cancelPost, createPost, PublishError, type TargetInput } from "@/lib/publishing";
 import { syncConnection } from "@/lib/sync";
 
 export type FormState = { error?: string; ok?: string } | undefined;
@@ -184,7 +184,10 @@ export async function connectBufferAction(_: FormState, form: FormData): Promise
   }
   const org = orgs[0];
   const values = {
-    apiKeyEnc: encryptSecret(apiKey),
+    authType: "api_key" as const,
+    accessTokenEnc: encryptSecret(apiKey),
+    refreshTokenEnc: null,
+    expiresAt: null,
     organizationId: org?.id ?? null,
     organizationName: org?.name ?? null,
   };
@@ -192,8 +195,8 @@ export async function connectBufferAction(_: FormState, form: FormData): Promise
     .insert(bufferConnections)
     .values({ workspaceId: ctx.workspace.id, ...values })
     .onConflictDoUpdate({ target: bufferConnections.workspaceId, set: values });
-  await audit("buffer.connected", { workspaceId: ctx.workspace.id, userId: ctx.user.id });
-  revalidatePath("/app/schedule");
+  await audit("buffer.connected", { workspaceId: ctx.workspace.id, userId: ctx.user.id, detail: { via: "api_key" } });
+  revalidatePath("/app/publish");
   revalidatePath("/app/settings/connections");
   return { ok: `Connected to Buffer${org ? ` (${org.name})` : ""}.` };
 }
@@ -202,52 +205,81 @@ export async function disconnectBufferAction() {
   const ctx = await requireAuth();
   await db.delete(bufferConnections).where(eq(bufferConnections.workspaceId, ctx.workspace.id));
   revalidatePath("/app/settings/connections");
-  revalidatePath("/app/schedule");
+  revalidatePath("/app/publish");
 }
 
-const Post = z.object({
-  channelId: z.string().min(1, "Pick a channel"),
-  channelLabel: z.string().optional(),
-  text: z.string().trim().min(1, "Write something").max(2200),
-  imageUrl: z.union([z.literal(""), z.string().url("Image must be a public URL")]).optional(),
+const PostForm = z.object({
+  text: z.string().trim().max(2200),
+  mediaUrl: z.union([z.literal(""), z.string().url()]).optional(),
+  mediaType: z.enum(["image", "video", ""]).optional(),
+  when: z.enum(["now", "later"]),
   dueAt: z.string().optional(),
   tzOffset: z.coerce.number().optional(),
+  /** JSON array of TargetInput, built by the composer. */
+  targets: z.string(),
 });
 
-export async function schedulePostAction(_: FormState, form: FormData): Promise<FormState> {
+const Target = z.union([
+  z.object({ kind: z.enum(["ig_feed", "ig_story", "ig_reel", "fb_post"]), connectionId: z.string().uuid() }),
+  z.object({ kind: z.literal("buffer"), bufferChannelId: z.string().min(1), label: z.string().optional() }),
+]);
+
+export async function createPostAction(_: FormState, form: FormData): Promise<FormState> {
   const ctx = await requireAuth();
-  const parsed = Post.safeParse(Object.fromEntries(form));
+  const parsed = PostForm.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
-  const [conn] = await db.select().from(bufferConnections).where(eq(bufferConnections.workspaceId, ctx.workspace.id));
-  if (!conn) return { error: "Connect Buffer first." };
+  const { text, mediaUrl, mediaType, when, dueAt, tzOffset } = parsed.data;
 
-  const { channelId, channelLabel, text, imageUrl, dueAt, tzOffset } = parsed.data;
-  // <input type="datetime-local"> has no zone; the browser sends its offset alongside.
-  const due = dueAt ? new Date(new Date(`${dueAt}:00Z`).getTime() + (tzOffset ?? 0) * 60_000) : undefined;
-  if (due && due.getTime() < Date.now()) return { error: "Pick a time in the future." };
-
+  let targets: TargetInput[];
   try {
-    const post = await buffer.createPost(decryptSecret(conn.apiKeyEnc), {
-      channelId,
-      text,
-      dueAt: due,
-      imageUrl: imageUrl || undefined,
-    });
-    await db.insert(scheduledPosts).values({
+    targets = z.array(Target).parse(JSON.parse(parsed.data.targets));
+  } catch {
+    return { error: "Pick at least one place to post." };
+  }
+
+  let scheduledAt: Date | undefined;
+  if (when === "later") {
+    if (!dueAt) return { error: "Pick a date and time." };
+    // <input type="datetime-local"> has no zone; the browser sends its offset alongside.
+    scheduledAt = new Date(new Date(`${dueAt}:00Z`).getTime() + (tzOffset ?? 0) * 60_000);
+    if (scheduledAt.getTime() < Date.now() + 60_000) return { error: "Pick a time at least a minute from now." };
+  }
+
+  let result: Awaited<ReturnType<typeof createPost>>;
+  try {
+    result = await createPost({
       workspaceId: ctx.workspace.id,
-      createdByUserId: ctx.user.id,
-      bufferPostId: post.id,
-      bufferChannelId: channelId,
-      channelLabel,
+      userId: ctx.user.id,
       text,
-      mediaUrl: imageUrl || null,
-      dueAt: post.dueAt ? new Date(post.dueAt) : (due ?? null),
+      mediaUrl: mediaUrl || null,
+      mediaType: mediaType || null,
+      scheduledAt,
+      targets,
     });
   } catch (err) {
-    return { error: (err as Error).message };
+    if (err instanceof PublishError) return { error: err.message };
+    console.error("[createPost]", err);
+    return { error: "Couldn't create the post. Please try again." };
   }
-  revalidatePath("/app/schedule");
-  return { ok: due ? "Scheduled!" : "Added to your Buffer queue!" };
+  revalidatePath("/app/publish");
+  switch (result.status) {
+    case "failed":
+      return { error: "Publishing failed — see the details below." };
+    case "partial":
+      return { error: "Some destinations failed — see the details below." };
+    case "publishing":
+      return { ok: "Publishing… videos can take a minute to process. Status updates below." };
+    case "scheduled":
+      return { ok: scheduledAt ? "Scheduled!" : "Queued." };
+    default:
+      return { ok: "Published!" };
+  }
+}
+
+export async function cancelPostAction(form: FormData) {
+  const ctx = await requireAuth();
+  await cancelPost(ctx.workspace.id, String(form.get("postId")));
+  revalidatePath("/app/publish");
 }
 
 // ─── Account ───────────────────────────────────────────────────────────

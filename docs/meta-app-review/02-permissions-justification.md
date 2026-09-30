@@ -33,7 +33,7 @@ and **where** it shows up in the screencast. Keep the answers concrete.
 > conversation and generate the suggested reply for that business, and is deleted
 > when the business disconnects or deletes its account.
 >
-> Screencast: 0:40–1:40 shows a DM arriving from a test account, the draft, the
+> Screencast: 0:40–1:30 shows a DM arriving from a test account, the draft, the
 > edit, the Approve & send tap, and the reply appearing in the Instagram app.
 
 **Is this a custom inbox or an automated experience?** Custom inbox (human agents).
@@ -55,7 +55,7 @@ There are no bot flows or keyword commands in v1. Every message is human-approve
 > with DMs, an AI-suggested reply is shown as a draft and never posted without
 > the user pressing "Approve & send".
 >
-> Screencast: 1:40–2:40 shows a new comment, the draft, a public reply appearing
+> Screencast: 1:30–2:45 shows a new comment, the draft, a public reply appearing
 > under the post in Instagram, and a spam comment being hidden and then deleted.
 
 ---
@@ -127,11 +127,83 @@ There are no bot flows or keyword commands in v1. Every message is human-approve
 
 ---
 
-## Deliberately NOT requested in v1
+## pages_messaging  *(Facebook Page inbox)*
 
-| Permission | Why not yet |
-|---|---|
-| `pages_messaging` | Facebook Page (Messenger) inbox is a v2 feature |
-| `instagram_content_publish` | Publishing goes through Buffer's API, not ours |
-| `instagram_manage_insights` | No analytics in v1 |
-| `pages_manage_posts` | Not used |
+> InboxAI shows a business's Facebook Page Messenger conversations in the same
+> unified inbox as its Instagram DMs. After the business connects its Page via
+> Facebook Login for Business, we use pages_messaging to (1) receive new messages
+> sent to the Page through the Messenger webhook and read recent conversation
+> history, so they appear in the inbox; and (2) send the reply that a human at
+> the business writes or approves.
+>
+> Each incoming message gets an AI-suggested draft in the business's brand
+> voice. It is never sent automatically: a person must review it, optionally
+> edit it, and press "Approve & send". Replies are sent as RESPONSE within the
+> 24-hour window, or with the HUMAN_AGENT tag when a human replies 24h–7d after
+> the customer's last message. We don't send promotional, broadcast or
+> unsolicited messages, and we have no bot flows.
+>
+> Screencast: 2:50–3:30 shows a Messenger message arriving from a test user, the
+> draft, the Approve & send tap, and the reply in Messenger.
+
+**Custom inbox or automated experience?** Custom inbox (human agents only).
+**How to initiate a conversation:** Message the test Page `<Test Page name>` from any Facebook account via Messenger.
+
+---
+
+## pages_read_user_content  *(Facebook Page inbox)*
+
+> Used to read comments that people leave on the connected Page's posts,
+> including the commenter's name, via the Page `feed` webhook and a periodic
+> sync. These comments are shown in the business's unified inbox next to the
+> post they belong to, so the business can reply or moderate. We read only the
+> Pages the user selected during login.
+>
+> Screencast: 3:30–3:45.
+
+---
+
+## pages_manage_engagement  *(Facebook Page inbox)*
+
+> Used to act on comments on the connected Page's posts, and only when a person
+> at the business clicks a button in InboxAI: (1) post the public reply they
+> approved; (2) hide or unhide a comment; (3) delete a spam or abusive comment.
+> AI drafts are never posted automatically.
+>
+> Screencast: 3:45–4:10 shows an approved reply appearing under the Page post,
+> and a spam comment being hidden and then deleted.
+
+---
+
+## instagram_content_publish  *(publishing)*
+
+> InboxAI lets a business publish to its own Instagram professional account from
+> the "Publish" page: a feed post (photo or video), a story, or a reel, either
+> right away or at a time they schedule. The user uploads the media, writes the
+> caption, picks the account and format, and presses Publish or Schedule. We
+> then create the media container and publish it. We only publish content the
+> user created and explicitly submitted; we never post on our own.
+>
+> Screencast: 4:15–5:00 shows uploading a photo, selecting "Instagram · Post"
+> and "Instagram · Story", pressing Publish, and both appearing on the profile.
+
+---
+
+## pages_manage_posts  *(publishing)*
+
+> From the same Publish page, a business can post to its connected Facebook Page
+> (text, photo or video), now or at a scheduled time. We use pages_manage_posts
+> only to create the posts the user writes and submits. We don't edit or delete
+> existing Page posts.
+>
+> Screencast: 4:15–5:00 (the "Facebook · Page post" target is selected in the
+> same publish flow, and the post is shown live on the Page).
+
+---
+
+## What this app deliberately does NOT do
+
+- No automated or bot replies: every message and comment reply is sent by a person.
+- No broadcasts, bulk messaging, or messages outside Meta's messaging windows.
+- No reading of personal profiles, friends, or groups.
+- No use of Platform Data for ads, profiling, or AI model training.

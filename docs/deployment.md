@@ -33,6 +33,11 @@ and every other branch to a preview URL.
 
 Migrations run automatically on every deploy (`scripts/migrate-if-configured.mjs`).
 
+**Also add a Blob store** (for photo/video uploads on the Publish page):
+**Storage → Create → Blob** → connect it to the project. This sets
+`BLOB_READ_WRITE_TOKEN` automatically. Without it, the Publish page falls back to
+pasting a public media URL.
+
 ## 4. Environment variables
 
 Project → **Settings → Environment Variables**. Generate each secret on your
@@ -58,6 +63,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 | `META_LOGIN_CONFIG_ID` | from Facebook Login for Business → Configurations | All |
 | `META_GRAPH_VERSION` | `v25.0` (check the current version) | All |
 | `META_WEBHOOK_VERIFY_TOKEN` | random | All |
+| `BUFFER_CLIENT_ID` / `BUFFER_CLIENT_SECRET` | Optional. From Buffer → Settings → API (register an OAuth app with redirect `https://app.yourdomain.com/api/buffer/callback`) | All |
 
 **Back up `TOKEN_ENCRYPTION_KEY` in a password manager.** If it's lost, every
 connected account has to reconnect. To rotate it, move the old value into
@@ -88,10 +94,16 @@ policy just needs to be on a domain listed under the app's "App domains".
 
 ## 7. Cron (backup sync)
 
-`vercel.json` runs `/api/cron/sync` **once a day** so it works on the Hobby
-plan. Webhooks are the real-time path; cron only catches anything they missed.
-On **Vercel Pro** you can change the schedule to `*/15 * * * *` for faster
-recovery. Vercel sends `CRON_SECRET` automatically; the route rejects any
+`vercel.json` defines two cron jobs, both **once a day** so a Hobby-plan deploy works:
+
+| Job | What it does | Recommended on Pro |
+|---|---|---|
+| `/api/cron/sync` | Catches any DMs/comments a webhook missed | `*/15 * * * *` |
+| `/api/cron/publish` | Publishes **scheduled** posts that are due, and finishes processing videos | `*/5 * * * *` |
+
+**Scheduled posts need Pro.** On Hobby, a post scheduled for 3pm would only go
+out at the next daily run. "Post now" works on any plan. Edit the schedules in
+`vercel.json` after upgrading. Vercel sends `CRON_SECRET` automatically; the route rejects any
 request without it.
 
 Check it: Project → **Settings → Cron Jobs** → **Run** → it should return 200.
@@ -119,6 +131,7 @@ After adding the `META_*` env vars, **redeploy** (env vars only apply to new dep
 - [ ] Meta webhook **Verify and save** succeeds
 - [ ] Connections → **Continue with Facebook** → your IG account shows "Active"
 - [ ] A DM from a second IG account appears in the inbox with a draft; Approve & send delivers it
+- [ ] Publish → "Post now" with a photo to Instagram and Facebook → each shows "published"
 - [ ] Cron job manual run returns 200
 
 ## Troubleshooting

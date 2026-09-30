@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -90,12 +91,18 @@ export const metaConnections = pgTable(
 );
 
 /**
- * Buffer's GraphQL API currently only supports personal API keys (no
- * third-party OAuth yet), so each customer pastes their own key.
+ * Buffer connection. Preferred: OAuth 2.0 + PKCE ("Connect with Buffer").
+ * Fallback: a personal API key pasted by the customer. Either way the
+ * credential is stored AES-256-GCM encrypted in `accessTokenEnc`.
  */
+export const bufferAuthEnum = pgEnum("buffer_auth", ["oauth", "api_key"]);
+
 export const bufferConnections = pgTable("buffer_connections", {
   workspaceId: uuid("workspace_id").primaryKey().references(() => workspaces.id, { onDelete: "cascade" }),
-  apiKeyEnc: text("api_key_enc").notNull(),
+  authType: bufferAuthEnum("auth_type").notNull().default("oauth"),
+  accessTokenEnc: text("access_token_enc").notNull(),
+  refreshTokenEnc: text("refresh_token_enc"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
   organizationId: text("organization_id"),
   organizationName: text("organization_name"),
   createdAt: createdAt(),
@@ -170,7 +177,7 @@ export const threads = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    uniqueIndex("threads_ws_kind_ext_uq").on(t.workspaceId, t.kind, t.externalId),
+    uniqueIndex("threads_ws_channel_kind_ext_uq").on(t.workspaceId, t.channel, t.kind, t.externalId),
     index("threads_inbox_idx").on(t.workspaceId, t.status, t.lastMessageAt),
   ],
 );
@@ -227,24 +234,49 @@ export const drafts = pgTable(
   (t) => [index("drafts_thread_idx").on(t.threadId, t.status)],
 );
 
-// ─── Publishing (Buffer) ───────────────────────────────────────────────
+// ─── Publishing (direct to Instagram / Facebook, optionally via Buffer) ─
 
-export const scheduledPosts = pgTable(
-  "scheduled_posts",
+export const postStatusEnum = pgEnum("post_status", ["scheduled", "publishing", "published", "partial", "failed"]);
+export const mediaTypeEnum = pgEnum("media_type", ["image", "video"]);
+export const postTargetKindEnum = pgEnum("post_target_kind", ["ig_feed", "ig_story", "ig_reel", "fb_post", "buffer"]);
+export const targetStatusEnum = pgEnum("target_status", ["scheduled", "processing", "published", "failed"]);
+
+/** One piece of content, published to one or more targets at `scheduledAt`. */
+export const posts = pgTable(
+  "posts",
   {
     id: id(),
     workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
-    bufferPostId: text("buffer_post_id"),
-    bufferChannelId: text("buffer_channel_id").notNull(),
-    channelLabel: text("channel_label"),
-    text: text("text").notNull(),
+    text: text("text").notNull().default(""),
     mediaUrl: text("media_url"),
-    dueAt: timestamp("due_at", { withTimezone: true }),
-    status: text("status").notNull().default("scheduled"),
+    mediaType: mediaTypeEnum("media_type"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+    status: postStatusEnum("status").notNull().default("scheduled"),
     createdAt: createdAt(),
   },
-  (t) => [index("scheduled_posts_ws_idx").on(t.workspaceId, t.dueAt)],
+  (t) => [index("posts_ws_idx").on(t.workspaceId, t.scheduledAt), index("posts_due_idx").on(t.status, t.scheduledAt)],
+);
+
+export const postTargets = pgTable(
+  "post_targets",
+  {
+    id: id(),
+    postId: uuid("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+    kind: postTargetKindEnum("kind").notNull(),
+    connectionId: uuid("connection_id").references(() => metaConnections.id, { onDelete: "cascade" }),
+    bufferChannelId: text("buffer_channel_id"),
+    label: text("label"),
+    status: targetStatusEnum("status").notNull().default("scheduled"),
+    /** Instagram media container id while a video is processing. */
+    containerId: text("container_id"),
+    externalId: text("external_id"),
+    permalink: text("permalink"),
+    error: text("error"),
+    attempts: integer("attempts").notNull().default(0),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+  },
+  (t) => [index("post_targets_post_idx").on(t.postId)],
 );
 
 // ─── Compliance & ops ──────────────────────────────────────────────────
@@ -291,3 +323,5 @@ export type VoiceProfile = typeof voiceProfiles.$inferSelect;
 export type Thread = typeof threads.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type Draft = typeof drafts.$inferSelect;
+export type Post = typeof posts.$inferSelect;
+export type PostTarget = typeof postTargets.$inferSelect;

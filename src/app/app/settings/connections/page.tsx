@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { bufferConnections, metaConnections } from "@/db/schema";
 import { clearDemoAction, disconnectBufferAction, disconnectMetaAction, seedDemoAction, syncNowAction } from "@/app/actions";
 import { requireAuth } from "@/lib/auth";
+import { bufferOAuthConfigured } from "@/lib/buffer";
 import { metaConfigured } from "@/lib/env";
 import { BufferConnectForm } from "./buffer-form";
 
@@ -12,8 +13,10 @@ export const metadata: Metadata = { title: "Connections" };
 
 const ERRORS: Record<string, string> = {
   meta_not_configured: "Meta app credentials aren't configured on the server yet (META_APP_ID / META_APP_SECRET).",
-  no_instagram_account:
-    "We couldn't find an Instagram professional account linked to the Pages you selected. Link your Instagram account to a Facebook Page in Meta Business Suite, then try again.",
+  no_pages:
+    "No Facebook Pages were shared. Run Continue with Facebook again and select at least one Page (and its linked Instagram account).",
+  buffer_not_configured: "Buffer sign-in isn't configured on the server yet (BUFFER_CLIENT_ID).",
+  buffer_access_denied: "You cancelled the Buffer sign-in.",
   invalid_state: "The login session expired or didn't match. Please try connecting again.",
   user_denied: "You cancelled the Facebook login.",
 };
@@ -21,7 +24,7 @@ const ERRORS: Record<string, string> = {
 export default async function ConnectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; connected?: string; onboarding?: string }>;
+  searchParams: Promise<{ error?: string; connected?: string; onboarding?: string; buffer?: string }>;
 }) {
   const { workspace } = await requireAuth();
   const sp = await searchParams;
@@ -40,6 +43,11 @@ export default async function ConnectionsPage({
       {sp.error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{ERRORS[sp.error] ?? `Connection failed: ${sp.error}`}</p>
       )}
+      {sp.buffer === "connected" && (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Buffer connected. <Link href="/app/publish" className="underline">Go to Publish →</Link>
+        </p>
+      )}
       {sp.connected && (
         <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           Connected {sp.connected} account(s). We&apos;re pulling in your recent messages and comments now.{" "}
@@ -48,11 +56,12 @@ export default async function ConnectionsPage({
       )}
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-5">
-        <h2 className="font-semibold">Instagram</h2>
+        <h2 className="font-semibold">Instagram &amp; Facebook</h2>
         <p className="mt-1 text-sm text-zinc-600">
-          Connect an Instagram professional (Business or Creator) account linked to a Facebook Page. You&apos;ll log in
-          with Facebook and choose exactly which Pages and Instagram accounts to share. We use this to show your DMs and
-          comments here and to post the replies you approve — nothing is sent without you pressing Send.
+          Connect your Facebook Page and its linked Instagram professional (Business or Creator) account. You&apos;ll
+          log in with Facebook and choose exactly which Pages and Instagram accounts to share. We use this to show your
+          DMs and comments here, post the replies you approve, and publish the posts you create — nothing is sent or
+          posted without you pressing the button.
         </p>
 
         <ul className="mt-4 space-y-3">
@@ -65,9 +74,12 @@ export default async function ConnectionsPage({
                 <div className="h-9 w-9 rounded-full bg-zinc-200" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="font-medium">@{c.igUsername ?? "unknown"}</p>
+                <p className="font-medium">
+                  {c.pageName}
+                  {c.igUsername && <span className="font-normal text-zinc-500"> · Instagram @{c.igUsername}</span>}
+                </p>
                 <p className="text-xs text-zinc-500">
-                  Page: {c.pageName} · {c.status === "active" ? "Active" : c.status === "revoked" ? "Access removed" : "Needs reconnect"}
+                  {c.igUsername ? "Facebook + Instagram" : "Facebook only (no linked Instagram)"} · {c.status === "active" ? "Active" : c.status === "revoked" ? "Access removed" : "Needs reconnect"}
                   {c.lastSyncedAt && ` · synced ${c.lastSyncedAt.toLocaleString()}`}
                 </p>
                 {c.lastError && <p className="mt-1 text-xs text-amber-700">{c.lastError}</p>}
@@ -120,15 +132,35 @@ export default async function ConnectionsPage({
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-5">
         <h2 className="font-semibold">Buffer <span className="text-xs font-normal text-zinc-500">(post scheduling)</span></h2>
+        <p className="mt-1 text-sm text-zinc-600">
+          Optional. Instagram and Facebook publishing is built in — connect Buffer only if you already use it or want
+          to post to other networks (TikTok, LinkedIn, …) from here.
+        </p>
         {buf ? (
           <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="text-sm text-zinc-600">Connected{buf.organizationName ? ` to ${buf.organizationName}` : ""}.</p>
+            <p className="text-sm text-zinc-600">
+              Connected{buf.organizationName ? ` to ${buf.organizationName}` : ""}
+              {buf.authType === "api_key" ? " (API key)" : ""}.
+            </p>
             <form action={disconnectBufferAction}>
               <button className="rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50">Disconnect</button>
             </form>
           </div>
         ) : (
-          <BufferConnectForm />
+          <div className="mt-3 space-y-3">
+            {bufferOAuthConfigured() && (
+              <a
+                href="/api/buffer/connect"
+                className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+              >
+                Connect with Buffer
+              </a>
+            )}
+            <details className="text-sm" open={!bufferOAuthConfigured()}>
+              <summary className="cursor-pointer text-zinc-500">Use a Buffer API key instead</summary>
+              <BufferConnectForm />
+            </details>
+          </div>
         )}
       </section>
 
