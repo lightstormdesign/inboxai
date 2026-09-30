@@ -48,8 +48,8 @@ marks the draft `sent` with `final_text`, and writes the audit log.
 ## Backfill and safety net
 The OAuth callback triggers `syncConnection` in `after()`: recent conversations +
 recent media comments, drafting up to 15 open threads. Vercel Cron runs the same
-sync every 15 minutes (`vercel.json`; sub-daily crons need a Pro plan). On Hobby,
-change it to daily and rely on webhooks.
+sync once a day (`vercel.json`, which works on the Hobby plan). On Pro, switch it
+to every 15 minutes for faster recovery from missed webhooks.
 
 ## Secrets
 - Meta Page tokens and Buffer keys: AES-256-GCM with a key id, so keys can rotate.

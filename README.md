@@ -33,20 +33,16 @@ app roles). See [docs/meta-app-review/01-app-setup.md](docs/meta-app-review/01-a
 
 ## Deploy to Vercel
 
-1. Import the repo in Vercel.
-2. Storage → add **Neon** Postgres. That sets `DATABASE_URL` / `DATABASE_URL_UNPOOLED`.
-3. Add the remaining env vars from `.env.example` (`APP_URL` = your production URL).
-4. Run migrations against production once: `DATABASE_URL=… npm run db:migrate`,
-   or add `npm run db:migrate &&` to the Vercel build command.
-5. Set `CRON_SECRET`. Vercel Cron calls `/api/cron/sync` every 15 min (Pro plan; on
-   Hobby change `vercel.json` to a daily schedule).
-6. Point your domain at the deployment, then follow the Meta setup doc.
+Step-by-step guide: **[docs/deployment.md](docs/deployment.md)**. In short: import the repo in Vercel,
+add Neon Postgres from the Marketplace, set the env vars from `.env.example`, and deploy.
+Migrations run automatically during the build (`npm run build:vercel`).
 
 ## Scripts
 
 | | |
 |---|---|
 | `npm run dev` / `build` / `start` | Next.js |
+| `npm run build:vercel` | Apply migrations (if a DB is configured), then build. Used by Vercel |
 | `npm run lint` | TypeScript type-check |
 | `npm test` | Vitest unit tests (crypto, webhook/signed-request verification, prompt builder, messaging window) |
 | `npm run db:generate` | Generate a migration after editing `src/db/schema.ts` |
